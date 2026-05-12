@@ -1,0 +1,372 @@
+{
+  "entities": {
+    "Email": {
+      "title": "Email",
+      "description": "A personal email message.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "subject": { "type": "string" },
+        "content": { "type": "string" },
+        "sender": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "isRead": { "type": "boolean" },
+        "summary": { "type": "string" },
+        "category": { "type": "string", "enum": ["Work", "Personal", "Promotions", "Social", "Other"] }
+      },
+      "required": ["userId", "subject", "content", "sender", "timestamp"]
+    },
+    "CalendarEvent": {
+      "title": "Calendar Event",
+      "description": "An event in the user's calendar.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "location": { "type": "string" }
+      },
+      "required": ["userId", "title", "startTime", "endTime"]
+    },
+    "Flight": {
+      "title": "Flight",
+      "description": "A flight booking or search result.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "origin": { "type": "string" },
+        "destination": { "type": "string" },
+        "departureTime": { "type": "string", "format": "date-time" },
+        "arrivalTime": { "type": "string", "format": "date-time" },
+        "airline": { "type": "string" },
+        "price": { "type": "number" },
+        "status": { "type": "string", "enum": ["search_result", "booked"] }
+      },
+      "required": ["userId", "origin", "destination", "departureTime", "airline", "price", "status"]
+    },
+    "Hotel": {
+      "title": "Hotel",
+      "description": "A hotel booking or search result.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "location": { "type": "string" },
+        "checkIn": { "type": "string", "format": "date" },
+        "checkOut": { "type": "string", "format": "date" },
+        "pricePerNight": { "type": "number" },
+        "totalPrice": { "type": "number" },
+        "status": { "type": "string", "enum": ["search_result", "booked"] }
+      },
+      "required": ["userId", "name", "location", "checkIn", "checkOut", "totalPrice", "status"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "A financial transaction for money management.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { "type": "string", "enum": ["income", "expense"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "amount", "category", "type", "timestamp"]
+    },
+    "JobApplication": {
+      "title": "Job Application",
+      "properties": {
+        "userId": { "type": "string" },
+        "company": { "type": "string" },
+        "role": { "type": "string" },
+        "status": { "type": "string" },
+        "link": { "type": "string" },
+        "salaryRange": { "type": "string" }
+      }
+    },
+    "CreditCard": {
+      "title": "Credit Card",
+      "properties": {
+        "userId": { "type": "string" },
+        "lastFour": { "type": "string" },
+        "brand": { "type": "string" },
+        "expiry": { "type": "string" },
+        "type": { "type": "string", "enum": ["physical", "virtual"] },
+        "status": { "type": "string", "enum": ["active", "frozen", "closed"] },
+        "balance": { "type": "number" }
+      }
+    },
+    "ShoppingItem": {
+      "title": "Shopping Item",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "brand": { "type": "string" },
+        "price": { "type": "number" },
+        "link": { "type": "string" },
+        "image": { "type": "string" }
+      }
+    },
+    "TrainTicket": {
+      "title": "Train Ticket",
+      "properties": {
+        "userId": { "type": "string" },
+        "origin": { "type": "string" },
+        "destination": { "type": "string" },
+        "departureTime": { "type": "string" },
+        "operator": { "type": "string" },
+        "price": { "type": "number" },
+        "status": { "type": "string" }
+      }
+    },
+    "BusTicket": {
+      "title": "Bus Ticket",
+      "properties": {
+        "userId": { "type": "string" },
+        "origin": { "type": "string" },
+        "destination": { "type": "string" },
+        "departureTime": { "type": "string" },
+        "operator": { "type": "string" },
+        "price": { "type": "number" },
+        "status": { "type": "string" }
+      }
+    },
+    "NavigationFavorite": {
+      "title": "Navigation Favorite",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "lat": { "type": "number" },
+        "lng": { "type": "number" }
+      }
+    },
+    "BankAppointment": {
+      "title": "Bank Appointment",
+      "properties": {
+        "userId": { "type": "string" },
+        "bank": { "type": "string" },
+        "time": { "type": "string" },
+        "purpose": { "type": "string" },
+        "contactPerson": { "type": "string" }
+      }
+    },
+    "TaxiBooking": {
+      "title": "Taxi Booking",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "origin": { "type": "string" },
+        "destination": { "type": "string" },
+        "pickupTime": { "type": "string" },
+        "price": { "type": "number" },
+        "driverName": { "type": "string" },
+        "carModel": { "type": "string" },
+        "estimatedArrival": { "type": "string" },
+        "status": { "type": "string", "enum": ["available", "booked", "arriving", "at_pickup", "in_progress", "completed"] },
+        "progress": { "type": "number" },
+        "currentLocation": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          }
+        }
+      },
+      "required": ["userId", "origin", "destination", "pickupTime", "price", "status"]
+    },
+    "Receipt": {
+      "title": "Receipt",
+      "description": "A store purchase receipt for pickup or records.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "itemName": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string", "format": "date-time" },
+        "storeName": { "type": "string" },
+        "orderNumber": { "type": "string" },
+        "status": { "type": "string", "enum": ["ready_for_pickup", "picked_up"] },
+        "type": { "type": "string", "enum": ["electronics", "groceries", "fashion", "other"] },
+        "paymentMethod": { "type": "string" },
+        "receiptUrl": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "price": { "type": "number" }
+            }
+          }
+        }
+      },
+      "required": ["userId", "itemName", "amount", "date", "status"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "A review for a flight or hotel.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "targetId": { "type": "string" },
+        "targetType": { "type": "string", "enum": ["flight", "hotel"] },
+        "targetName": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "targetId", "targetType", "rating", "comment"]
+    },
+    "PriceAlert": {
+      "title": "Price Alert",
+      "description": "An alert for price changes.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "origin": { "type": "string" },
+        "destination": { "type": "string" },
+        "targetType": { "type": "string", "enum": ["flight", "hotel"] },
+        "maxPrice": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "triggered", "disabled"] }
+      },
+      "required": ["userId", "destination", "targetType", "maxPrice", "status"]
+    },
+    "CarRental": {
+      "title": "Car Rental",
+      "description": "A car rental booking or search result.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "company": { "type": "string" },
+        "model": { "type": "string" },
+        "location": { "type": "string" },
+        "pickupTime": { "type": "string", "format": "date-time" },
+        "returnTime": { "type": "string", "format": "date-time" },
+        "price": { "type": "number" },
+        "status": { "type": "string", "enum": ["available", "booked"] }
+      },
+      "required": ["userId", "company", "model", "location", "pickupTime", "returnTime", "price", "status"]
+    },
+    "TravelAlert": {
+      "title": "Travel Alert",
+      "description": "A proactive alert for flight delays, gate changes, or traffic.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "tripId": { "type": "string" },
+        "type": { "type": "string", "enum": ["delay", "gate_change", "traffic", "weather"] },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "severity": { "type": "string", "enum": ["low", "medium", "high"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "isRead": { "type": "boolean" }
+      },
+      "required": ["userId", "tripId", "type", "title", "message", "severity", "timestamp"]
+    },
+    "Message": {
+      "title": "Chat Message",
+      "properties": {
+        "userId": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "assistant"] },
+        "content": { "type": "string" },
+        "type": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    },
+    "UserPreferences": {
+      "title": "User Preferences",
+      "description": "User specific settings and preferences.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "flightPreferences": {
+          "type": "object",
+          "properties": {
+            "seatType": { "type": "string" },
+            "airline": { "type": "string" },
+            "loyaltyNumber": { "type": "string" }
+          }
+        }
+      },
+      "required": ["userId"]
+    }
+  },
+  "firestore": {
+    "/emails/{emailId}": {
+      "schema": "Email",
+      "description": "User emails"
+    },
+    "/calendar/{eventId}": {
+      "schema": "CalendarEvent",
+      "description": "User calendar events"
+    },
+    "/flights/{flightId}": {
+      "schema": "Flight",
+      "description": "User flights"
+    },
+    "/hotels/{hotelId}": {
+      "schema": "Hotel",
+      "description": "User hotels"
+    },
+    "/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "User financial transactions"
+    },
+    "/jobs/{jobId}": {
+      "schema": "JobApplication",
+      "description": "Developer jobs"
+    },
+    "/cards/{cardId}": {
+      "schema": "CreditCard",
+      "description": "Encrypted card vault"
+    },
+    "/shopping/{itemId}": {
+      "schema": "ShoppingItem",
+      "description": "Luxury shopping list"
+    },
+    "/trains/{trainId}": {
+      "schema": "TrainTicket",
+      "description": "Train bookings"
+    },
+    "/buses/{busId}": {
+      "schema": "BusTicket",
+      "description": "Bus bookings"
+    },
+    "/navigation/{navId}": {
+      "schema": "NavigationFavorite",
+      "description": "Favorite locations"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Flight and airline reviews"
+    },
+    "/priceAlerts/{alertId}": {
+      "schema": "PriceAlert",
+      "description": "Price drop alerts"
+    },
+    "/chats/{chatId}": {
+      "schema": "Message",
+      "description": "Persistent chat messages"
+    },
+    "/cars/{carId}": {
+      "schema": "CarRental",
+      "description": "Car rental bookings"
+    },
+    "/travelAlerts/{alertId}": {
+      "schema": "TravelAlert",
+      "description": "Proactive travel alerts"
+    },
+    "/taxis/{taxiId}": {
+      "schema": "TaxiBooking",
+      "description": "Taxi and ride bookings"
+    },
+    "/receipts/{receiptId}": {
+      "schema": "Receipt",
+      "description": "Store receipts and pickups"
+    }
+  }
+}

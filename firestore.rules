@@ -1,0 +1,350 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Entity Validations
+    function isValidEmail(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.subject is string && data.subject.size() <= 500 &&
+             data.content is string && data.content.size() <= 10000 &&
+             data.sender is string && data.sender.size() <= 256 &&
+             (!('category' in data) || (data.category in ['Work', 'Personal', 'Promotions', 'Social', 'Other']));
+    }
+
+    function isValidCalendarEvent(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.title is string && data.title.size() <= 500 &&
+             data.startTime is string && data.endTime is string;
+    }
+
+    function isValidFlight(data) {
+      let isBaseValid = data.userId is string && data.userId.size() <= 128 &&
+             data.origin is string && data.origin.size() <= 100 &&
+             data.destination is string && data.destination.size() <= 100 &&
+             data.price is number && data.price >= 0 &&
+             data.status in ['search_result', 'booked'];
+             
+      let isInsuranceValid = !('hasInsurance' in data) || (
+          data.hasInsurance is bool &&
+          (!data.hasInsurance || (
+              data.insuranceDetails is map &&
+              data.insuranceDetails.provider is string && data.insuranceDetails.provider.size() <= 200 &&
+              data.insuranceDetails.policyNumber is string && data.insuranceDetails.policyNumber.size() <= 200 &&
+              data.insuranceDetails.type is string && data.insuranceDetails.type.size() <= 100
+          ))
+      );
+      
+      return isBaseValid && isInsuranceValid;
+    }
+
+    function isValidHotel(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.name is string && data.name.size() <= 200 &&
+             data.totalPrice is number && data.totalPrice >= 0 &&
+             data.status in ['search_result', 'booked'];
+    }
+
+    function isValidTransaction(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.amount is number &&
+             data.type in ['income', 'expense'];
+    }
+
+    function isValidReview(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.targetId is string && data.targetId.size() <= 128 &&
+             data.targetName is string && data.targetName.size() <= 200 &&
+             data.targetType in ['flight', 'hotel'] &&
+             data.rating is number && data.rating >= 1 && data.rating <= 5;
+    }
+
+    function isValidPriceAlert(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.destination is string && data.destination.size() <= 200 &&
+             data.targetType in ['flight', 'hotel'] &&
+             data.maxPrice is number && data.maxPrice >= 0 &&
+             data.status in ['active', 'triggered', 'disabled'];
+    }
+
+    function isValidMessage(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.role in ['user', 'assistant'] &&
+             data.content is string && data.content.size() <= 10000;
+    }
+
+    function isValidTravelAlert(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.tripId is string && data.tripId.size() <= 128 &&
+             data.type in ['delay', 'gate_change', 'traffic', 'weather'] &&
+             data.title is string && data.title.size() <= 500 &&
+             data.message is string && data.message.size() <= 2000 &&
+             data.severity in ['low', 'medium', 'high'];
+    }
+
+    function isValidRental(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.company is string && data.company.size() <= 200 &&
+             data.model is string && data.model.size() <= 200 &&
+             data.location is string && data.location.size() <= 200 &&
+             data.price is number && data.price >= 0 &&
+             data.status in ['available', 'booked'];
+    }
+
+    function isValidTaxi(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.origin is string && data.origin.size() <= 200 &&
+             data.destination is string && data.destination.size() <= 200 &&
+             data.pickupTime is string && data.pickupTime.size() <= 100 &&
+             data.price is number && data.price >= 0 &&
+             data.status in ['available', 'booked', 'arriving', 'at_pickup', 'in_progress', 'completed'] &&
+             (!('driverName' in data) || (data.driverName is string && data.driverName.size() <= 200)) &&
+             (!('carModel' in data) || (data.carModel is string && data.carModel.size() <= 200)) &&
+             (!('estimatedArrival' in data) || (data.estimatedArrival is string && data.estimatedArrival.size() <= 100)) &&
+             (!('progress' in data) || (data.progress is number && data.progress >= 0 && data.progress <= 1));
+    }
+
+    function isValidCreditCard(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.lastFour is string && data.lastFour.size() == 4 &&
+             data.brand is string && data.brand.size() <= 50 &&
+             data.expiry is string && data.expiry.size() <= 10 &&
+             (!('type' in data) || data.type in ['physical', 'virtual']) &&
+             (!('status' in data) || data.status in ['active', 'frozen', 'closed']) &&
+             (!('balance' in data) || data.balance is number);
+    }
+
+    function isValidReceipt(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.itemName is string && data.itemName.size() <= 500 &&
+             data.amount is number && data.amount >= 0 &&
+             data.storeName is string && data.storeName.size() <= 500 &&
+             data.status in ['ready_for_pickup', 'picked_up'] &&
+             (!('paymentMethod' in data) || (data.paymentMethod is string && data.paymentMethod.size() <= 200)) &&
+             (!('receiptUrl' in data) || (data.receiptUrl is string && data.receiptUrl.size() <= 1000)) &&
+             (!('items' in data) || data.items is list);
+    }
+
+    function isValidPreferences(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             (!('flightPreferences' in data) || (
+               data.flightPreferences is map &&
+               (!('seatType' in data.flightPreferences) || (data.flightPreferences.seatType is string && data.flightPreferences.seatType.size() <= 100)) &&
+               (!('airline' in data.flightPreferences) || (data.flightPreferences.airline is string && data.flightPreferences.airline.size() <= 100)) &&
+               (!('loyaltyNumber' in data.flightPreferences) || (data.flightPreferences.loyaltyNumber is string && data.flightPreferences.loyaltyNumber.size() <= 100))
+             ));
+    }
+
+    // Collection: Emails
+    match /emails/{emailId} {
+      allow get: if isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(request.resource.data.userId) && isValidEmail(request.resource.data);
+      allow update: if isOwner(resource.data.userId) && 
+                      request.resource.data.userId == resource.data.userId &&
+                      isValidEmail(request.resource.data);
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    // Collection: Calendar
+    match /calendar/{eventId} {
+      allow get: if isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(request.resource.data.userId) && isValidCalendarEvent(request.resource.data);
+      allow update: if isOwner(resource.data.userId) && 
+                      request.resource.data.userId == resource.data.userId &&
+                      isValidCalendarEvent(request.resource.data);
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    // Collection: Flights
+    match /flights/{flightId} {
+      allow get: if isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(request.resource.data.userId) && isValidFlight(request.resource.data);
+      allow update: if isOwner(resource.data.userId) && 
+                      request.resource.data.userId == resource.data.userId &&
+                      isValidFlight(request.resource.data);
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    // Collection: Hotels
+    match /hotels/{hotelId} {
+      allow get: if isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(request.resource.data.userId) && isValidHotel(request.resource.data);
+      allow update: if isOwner(resource.data.userId) && 
+                      request.resource.data.userId == resource.data.userId &&
+                      isValidHotel(request.resource.data);
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    // Collection: Transactions
+    match /transactions/{txId} {
+      allow get: if isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(request.resource.data.userId) && isValidTransaction(request.resource.data);
+      allow update: if isOwner(resource.data.userId) && 
+                      request.resource.data.userId == resource.data.userId &&
+                      isValidTransaction(request.resource.data);
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    match /jobs/{jobId} {
+      allow get: if isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    match /cards/{cardId} {
+      allow get: if isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(request.resource.data.userId) && isValidCreditCard(request.resource.data);
+      allow update: if isOwner(resource.data.userId) && 
+                      request.resource.data.userId == resource.data.userId &&
+                      isValidCreditCard(request.resource.data);
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    match /shopping/{itemId} {
+      allow get: if isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    match /trains/{trainId} {
+      allow get: if isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    match /buses/{busId} {
+      allow get: if isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    match /navigation/{navId} {
+      allow get: if isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isOwner(resource.data.userId);
+    }
+    
+    match /cars/{carId} {
+      allow get: if isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(request.resource.data.userId) && isValidRental(request.resource.data);
+      allow update: if isOwner(resource.data.userId) && 
+                      request.resource.data.userId == resource.data.userId &&
+                      isValidRental(request.resource.data);
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    match /taxis/{taxiId} {
+      allow get: if isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(request.resource.data.userId) && isValidTaxi(request.resource.data);
+      allow update: if isOwner(resource.data.userId) && 
+                      request.resource.data.userId == resource.data.userId &&
+                      isValidTaxi(request.resource.data);
+      allow delete: if isOwner(resource.data.userId);
+    }
+    
+    match /reviews/{reviewId} {
+      allow get: if true; // Public reviews
+      allow list: if true; // Public reviews
+      allow create: if isOwner(request.resource.data.userId) && isValidReview(request.resource.data);
+      allow update, delete: if isOwner(resource.data.userId) && 
+                               request.resource.data.userId == resource.data.userId &&
+                               isValidReview(request.resource.data);
+    }
+
+    match /priceAlerts/{alertId} {
+      allow get: if isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(request.resource.data.userId) && isValidPriceAlert(request.resource.data);
+      allow update: if isOwner(resource.data.userId) && 
+                      request.resource.data.userId == resource.data.userId &&
+                      isValidPriceAlert(request.resource.data);
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    match /chats/{chatId} {
+      allow get: if isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(request.resource.data.userId) && isValidMessage(request.resource.data);
+      allow update: if isOwner(resource.data.userId) && 
+                      request.resource.data.userId == resource.data.userId &&
+                      isValidMessage(request.resource.data);
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    // Collection: Travel Alerts
+    match /travelAlerts/{alertId} {
+      allow get: if isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(request.resource.data.userId) && isValidTravelAlert(request.resource.data);
+      allow update: if isOwner(resource.data.userId) && 
+                      request.resource.data.userId == resource.data.userId &&
+                      (incoming().diff(existing()).affectedKeys().hasOnly(['isRead']) || 
+                       isValidTravelAlert(request.resource.data));
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    // Collection: Receipts
+    match /receipts/{receiptId} {
+      allow get: if isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(request.resource.data.userId) && isValidReceipt(request.resource.data);
+      allow update: if isOwner(resource.data.userId) && 
+                      request.resource.data.userId == resource.data.userId &&
+                      isValidReceipt(request.resource.data);
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    // Collection: Preferences
+    match /preferences/{prefId} {
+      allow get: if isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isOwner(request.resource.data.userId) && isValidPreferences(request.resource.data);
+      allow update: if isOwner(resource.data.userId) && 
+                      request.resource.data.userId == resource.data.userId &&
+                      isValidPreferences(request.resource.data);
+      allow delete: if isOwner(resource.data.userId);
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "Nexus Personal Assistant",
+  "description": "Elite AI assistant for travel (flights, hotels, rentals), finance, shopping (Saturn, MediaMarkt), and career management.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": []
+}
