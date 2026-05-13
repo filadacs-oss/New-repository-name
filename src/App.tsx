@@ -5,52 +5,16 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { 
-  Send, 
-  Calendar, 
-  Mail, 
-  Plane, 
-  User as UserIcon, 
-  LogOut, 
-  Loader2,
-  ChevronRight,
-  Plus,
-  Clock,
-  Wallet,
-  Building2,
-  TrendingDown,
-  TrendingUp,
-  Briefcase,
-  Shield,
-  CreditCard as CreditCardIcon,
-  Mic,
-  MicOff,
-  Navigation,
-  Train,
-  Bus,
-  Map as MapIcon,
-  Locate,
-  ShoppingBag,
-  Bell,
-  Smartphone,
-  Navigation2,
-  ThumbsUp,
-  MessageSquare,
-  Filter,
-  Zap,
-  MapPin,
-  Search,
-  Grip,
-  Upload,
-  Camera,
-  Banknote,
-  MoreHorizontal,
-  AlertTriangle,
-  Trash2,
-  Star,
-  ClipboardCheck,
-  Car,
-  Sparkles
+  Send, Mail, Calendar, Plane, User as UserIcon, LogOut, Loader2,
+  MapPin, Clock, Search, Briefcase, Plus, Filter, MessageSquare, AlertCircle, 
+  X, ChevronRight, Layout, Wallet, CreditCard as CardIcon, ShoppingBag, 
+  Settings, Bell, Image as ImageIcon, Map as MapIcon, Compass, Sparkles,
+  TrendingUp, TrendingDown, DollarSign, ArrowRight, Star, Building2, 
+  TrainFront, Bus, Navigation, Car, Smartphone, Laptop, Trash2, Shield,
+  ChevronDown, RefreshCw, Share2, Locate, Map as MapUiIcon, Zap,
+  Grip, Upload, Camera, Banknote, MoreHorizontal, AlertTriangle, ClipboardCheck
 } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip as ReTooltip, Legend } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 import { APIProvider, Map, AdvancedMarker, Pin, useMap, useMapsLibrary, InfoWindow, useAdvancedMarkerRef } from '@vis.gl/react-google-maps';
 import { signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
@@ -118,6 +82,126 @@ const ALL_AIRLINES = [
   'Delta', 'Spirit Airlines', 'JetBlue', 'Alaska Airlines', 'Frontier Airlines'
 ];
 
+const TransactionChart = ({ transactions }: { transactions: Transaction[] }) => {
+  const categoryData = transactions.reduce((acc: any[], curr) => {
+    if (curr.type === 'expense') {
+      const existing = acc.find(a => a.name === curr.category);
+      if (existing) {
+        existing.value += curr.amount;
+      } else {
+        acc.push({ name: curr.category, value: curr.amount });
+      }
+    }
+    return acc;
+  }, []);
+
+  const COLORS = ['#171717', '#2563eb', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899'];
+
+  return (
+    <div className="h-64 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={categoryData}
+            cx="50%"
+            cy="50%"
+            innerRadius={60}
+            outerRadius={80}
+            paddingAngle={5}
+            dataKey="value"
+          >
+            {categoryData.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+            ))}
+          </Pie>
+          <ReTooltip 
+            contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+          />
+          <Legend />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
+const ProactiveAlertCard = ({ alert, onDismiss }: { alert: TravelAlert, onDismiss: () => void }) => {
+  const iconMap: any = { delay: <Clock size={20} />, price_drop: <TrendingDown size={20} />, gate: <MapPin size={20} />, traffic: <Car size={20} /> };
+  const colorMap: any = { 
+    high: 'border-red-500 bg-red-50 text-red-900', 
+    medium: 'border-blue-500 bg-blue-50 text-blue-900', 
+    low: 'border-neutral-500 bg-neutral-50 text-neutral-900' 
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: -20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      className={`flex items-center p-5 mb-4 border-l-4 rounded-r-2xl shadow-xl backdrop-blur-md relative overflow-hidden group ${colorMap[alert.severity || 'medium']}`}
+    >
+      <div className="absolute top-0 right-0 w-32 h-32 bg-current opacity-5 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110" />
+      <div className="text-2xl mr-4 shrink-0 opacity-80">
+        {iconMap[alert.type] || <Zap size={20} />}
+      </div>
+      <div className="flex-grow min-w-0 pr-8">
+        <h4 className="font-black text-[8px] uppercase tracking-[0.2em] opacity-60 mb-0.5">{alert.title}</h4>
+        <p className="text-sm font-bold leading-tight">{alert.message}</p>
+      </div>
+      <button 
+        onClick={onDismiss}
+        className="bg-neutral-900 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-md shrink-0"
+      >
+        Dismiss
+      </button>
+      <button 
+        onClick={onDismiss}
+        className="absolute top-2 right-2 p-1 opacity-20 hover:opacity-100 transition-opacity"
+      >
+        <X size={10} />
+      </button>
+    </motion.div>
+  );
+};
+
+const SpendingTrends = ({ transactions }: { transactions: Transaction[] }) => {
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    return d.toISOString().split('T')[0];
+  });
+
+  const data = last7Days.map(date => {
+    const dailyTotal = transactions
+      .filter(t => t.type === 'expense' && t.timestamp.startsWith(date))
+      .reduce((sum, t) => sum + t.amount, 0);
+    return {
+      date: format(new Date(date), 'MMM d'),
+      amount: dailyTotal
+    };
+  });
+
+  return (
+    <div className="h-64 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data}>
+          <XAxis dataKey="date" hide />
+          <YAxis hide />
+          <ReTooltip 
+            cursor={{ fill: 'rgba(0,0,0,0.05)', radius: 8 }}
+            contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+          />
+          <Bar 
+            dataKey="amount" 
+            fill="#171717" 
+            radius={[8, 8, 0, 0]}
+            animationDuration={1500}
+          />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -125,7 +209,14 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<'chat' | 'emails' | 'calendar' | 'flights' | 'hotels' | 'money' | 'vault' | 'agent' | 'navigation' | 'travel' | 'shopping' | 'cars'>('chat');
   const [calendarView, setCalendarView] = useState<'day' | 'week' | 'month'>('week');
-  const [emailFilter, setEmailFilter] = useState('');
+  const [emailSort, setEmailSort] = useState<'newest' | 'oldest'>('newest');
+  const [activeEmailTab, setActiveEmailTab] = useState<'All' | 'Work' | 'Personal' | 'Promotions' | 'Social' | 'Other'>('All');
+  const [emailSummary, setEmailSummary] = useState<string | null>(null);
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+
+  const [txSortBy, setTxSortBy] = useState<'date' | 'amount' | 'description'>('date');
+  const [txSortOrder, setTxSortOrder] = useState<'asc' | 'desc'>('desc');
   const [flightFilter, setFlightFilter] = useState({ 
     maxPrice: 2000, 
     airline: '', 
@@ -154,6 +245,7 @@ export default function App() {
   const [showAlerts, setShowAlerts] = useState(false);
   const [txFilter, setTxFilter] = useState({ type: 'all', category: 'all', date: '' });
   const [jobFilter, setJobFilter] = useState({ location: '', minSalary: 0, status: 'all' });
+  const [selectedPlace, setSelectedPlace] = useState<any | null>(null);
   const [addingTrain, setAddingTrain] = useState(false);
   const [newTrain, setNewTrain] = useState<Partial<TrainTicket>>({ origin: '', destination: '', departureTime: '', operator: '', price: 0 });
   const [addingBus, setAddingBus] = useState(false);
@@ -241,10 +333,37 @@ export default function App() {
   const [mapCenter, setMapCenter] = useState({ lat: 51.5074, lng: -0.1278 }); // London
   const [mapZoom, setMapZoom] = useState(12);
 
-  const filteredEmails = emails.filter(e => 
-    e.subject.toLowerCase().includes(emailFilter.toLowerCase()) || 
-    e.sender.toLowerCase().includes(emailFilter.toLowerCase())
-  );
+  const filteredEmails = useMemo(() => {
+    let list = emails.filter(e => 
+      (activeEmailTab === 'All' || e.category === activeEmailTab) &&
+      (e.subject.toLowerCase().includes(emailFilter.toLowerCase()) || 
+       e.sender.toLowerCase().includes(emailFilter.toLowerCase()))
+    );
+    return list.sort((a, b) => {
+      const timeA = new Date(a.timestamp).getTime();
+      const timeB = new Date(b.timestamp).getTime();
+      return emailSort === 'newest' ? timeB - timeA : timeA - timeB;
+    });
+  }, [emails, emailFilter, activeEmailTab, emailSort]);
+
+  const filteredTransactions = useMemo(() => {
+    let list = transactions.filter(t => 
+      (txFilter.type === 'all' || t.type === txFilter.type) &&
+      (txFilter.category === 'all' || t.category === txFilter.category) &&
+      (!txFilter.date || safeFormat(t.timestamp, 'yyyy-MM-dd') === txFilter.date)
+    );
+    return list.sort((a, b) => {
+      let comparison = 0;
+      if (txSortBy === 'date') {
+        comparison = new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+      } else if (txSortBy === 'amount') {
+        comparison = a.amount - b.amount;
+      } else {
+        comparison = a.description.localeCompare(b.description);
+      }
+      return txSortOrder === 'desc' ? -comparison : comparison;
+    });
+  }, [transactions, txFilter, txSortBy, txSortOrder]);
 
   const filteredFlights = flights.filter(f => {
     const d = safeDate(f.departureTime);
@@ -273,12 +392,6 @@ export default function App() {
     (rentalFilter.type === '' || c.type === rentalFilter.type) &&
     (rentalFilter.transmission === '' || c.transmission === rentalFilter.transmission) &&
     (rentalFilter.minFuelEfficiency === '' || parseInt(c.fuelEfficiency || '0') >= parseInt(rentalFilter.minFuelEfficiency))
-  );
-
-  const filteredTransactions = transactions.filter(tx => 
-    (txFilter.type === 'all' || tx.type === txFilter.type) &&
-    (txFilter.category === 'all' || tx.category === txFilter.category) &&
-    (txFilter.date === '' || safeFormat(tx.timestamp, 'yyyy-MM-dd') === txFilter.date)
   );
 
   const filteredJobs = jobs.filter(job => {
@@ -1226,6 +1339,14 @@ export default function App() {
             {loading && <Loader2 className="animate-spin text-blue-500" size={16} />}
           </div>
           <div className="flex gap-4 items-center">
+            {alerts.length > 0 && alerts.slice(-1).map(alert => (
+              <div key={alert.id} className="hidden xl:block">
+                 <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 px-4 py-1.5 rounded-full">
+                    <Zap size={12} className="text-blue-500 animate-pulse" />
+                    <span className="text-[10px] font-black text-blue-900 uppercase tracking-widest truncate max-w-[200px]">{alert.title}</span>
+                 </div>
+              </div>
+            ))}
             <button 
               onClick={() => setShowAlerts(!showAlerts)}
               className="relative p-2 text-neutral-500 hover:text-neutral-900 transition-colors"
@@ -1781,7 +1902,20 @@ export default function App() {
                 exit={{ opacity: 0, x: -20 }}
                 className="max-w-3xl mx-auto flex flex-col h-full"
               >
-                <div className="flex-1 space-y-4 mb-4">
+                <div className="flex-1 space-y-4 mb-4 mt-2">
+                  <AnimatePresence mode="popLayout">
+                    {alerts.filter(a => !a.isRead).length > 0 && alerts.filter(a => !a.isRead).map(alert => (
+                      <ProactiveAlertCard 
+                        key={alert.id} 
+                        alert={alert} 
+                        onDismiss={async () => {
+                          await alertService.updateAlert(alert.id, { isRead: true });
+                          await refreshData();
+                        }} 
+                      />
+                    ))}
+                  </AnimatePresence>
+
                   {messages.length === 0 && (
                     <div className="text-center py-12 space-y-8">
                       <div className="space-y-2">
@@ -1894,65 +2028,157 @@ export default function App() {
                 key="emails"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="space-y-4 max-w-4xl mx-auto"
+                className="h-[calc(100vh-120px)] flex gap-6 max-w-6xl mx-auto"
               >
-                {filteredEmails.length === 0 ? (
-                  <p className="text-center text-neutral-400 py-12">No emails matching your filter.</p>
-                ) : (
-                  filteredEmails.map(email => (
-                    <div key={email.id} className="bg-white p-4 rounded-2xl border shadow-sm hover:shadow-md transition-shadow group cursor-pointer">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h4 className="font-semibold text-neutral-900">{email.subject}</h4>
-                          <p className="text-xs text-neutral-500">From: {email.sender}</p>
-                        </div>
-                        <span className="text-[10px] bg-neutral-100 px-2 py-1 rounded-full text-neutral-500">
-                          {safeFormat(email.timestamp, 'MMM d, h:mm a')}
-                        </span>
-                      </div>
-                      <div className="flex gap-2 items-center mb-2">
-                         <select 
-                          value={email.category || 'Other'} 
-                          onChange={async (e) => {
-                              e.stopPropagation();
-                              await emailService.updateEmail(email.id, { category: e.target.value as any });
-                              await refreshData();
-                          }}
-                          className="text-[10px] border border-neutral-200 rounded-full px-2 py-1 bg-neutral-50"
-                        >
-                          {['Work', 'Personal', 'Promotions', 'Social', 'Other'].map(cat => (
-                             <option key={cat} value={cat}>{cat}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <p className="text-sm text-neutral-600 line-clamp-2">{email.summary || email.content}</p>
-                      <button 
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          setSummarizingId(email.id);
-                          try {
-                            const summary = await generateEmailSummary(email.content);
-                            await emailService.updateEmail(email.id, { summary });
-                            await refreshData();
-                          } catch (err) {
-                            console.error(err);
-                          } finally {
-                            setSummarizingId(null);
-                          }
-                        }}
-                        disabled={summarizingId === email.id}
-                        className="mt-3 text-xs text-blue-600 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-100"
-                      >
-                        {summarizingId === email.id ? (
-                          <Loader2 size={10} className="animate-spin" />
-                        ) : (
-                          <Sparkles size={10} />
-                        )}
-                        {email.summary ? 'Re-summarize' : 'Summarize'}
-                      </button>
+                {/* Email Sidebar/List */}
+                <div className="w-80 flex flex-col bg-white rounded-3xl border shadow-sm overflow-hidden">
+                  <div className="p-4 border-b space-y-4 bg-neutral-50/50">
+                    <div className="relative">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                      <input 
+                        type="text" 
+                        placeholder="Search mail..." 
+                        value={emailFilter}
+                        onChange={(e) => setEmailFilter(e.target.value)}
+                        className="w-full bg-white text-xs pl-10 pr-4 py-2.5 rounded-xl border border-neutral-100 focus:ring-1 focus:ring-neutral-200 outline-none"
+                      />
                     </div>
-                  ))
-                )}
+                    {/* Smart Folders/Tabs */}
+                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                      {(['All', 'Work', 'Personal', 'Promotions'] as const).map(tab => (
+                        <button
+                          key={tab}
+                          onClick={() => setActiveEmailTab(tab)}
+                          className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${
+                            activeEmailTab === tab 
+                              ? 'bg-neutral-900 text-white shadow-md' 
+                              : 'bg-neutral-200/50 text-neutral-500 hover:bg-neutral-200'
+                          }`}
+                        >
+                          {tab}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto no-scrollbar">
+                    {filteredEmails.length === 0 ? (
+                      <div className="p-12 text-center space-y-2 opacity-50">
+                        <Mail size={32} className="mx-auto text-neutral-200" />
+                        <p className="text-xs font-bold uppercase tracking-widest">Inbox Clean</p>
+                      </div>
+                    ) : (
+                      filteredEmails.map(email => (
+                        <button 
+                          key={email.id}
+                          onClick={() => {
+                            setSelectedEmail(email);
+                            setShowSummary(false);
+                            setEmailSummary(null);
+                          }}
+                          className={`w-full p-4 border-b text-left transition-all relative ${selectedEmail?.id === email.id ? 'bg-neutral-50' : 'hover:bg-neutral-50/50'}`}
+                        >
+                          {!email.isRead && (
+                            <div className="absolute left-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-blue-500 rounded-full" />
+                          )}
+                          <div className="flex justify-between items-start mb-1 ml-2">
+                            <span className="text-[9px] text-neutral-400 font-black uppercase tracking-tighter">{email.category}</span>
+                            <span className="text-[9px] text-neutral-400 font-medium">{safeFormat(email.timestamp, 'HH:mm')}</span>
+                          </div>
+                          <div className="ml-2">
+                            <p className={`text-xs font-bold truncate ${email.isRead ? 'text-neutral-500' : 'text-neutral-900'}`}>{email.subject}</p>
+                            <p className="text-[10px] text-neutral-400 truncate mt-0.5">{email.sender}</p>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Email Content Detail View */}
+                <div className="flex-1 bg-white rounded-3xl border shadow-sm overflow-hidden flex flex-col">
+                  {selectedEmail ? (
+                    <div className="flex-1 overflow-y-auto p-10 space-y-8">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-2">
+                          <h2 className="text-3xl font-black text-neutral-900 tracking-tighter leading-none">{selectedEmail.subject}</h2>
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-[10px] font-black uppercase">
+                              {selectedEmail.sender[0]}
+                            </div>
+                            <div className="text-xs">
+                              <p className="font-bold text-neutral-900">{selectedEmail.sender}</p>
+                              <p className="text-[10px] text-neutral-400">{safeFormat(selectedEmail.timestamp, 'PPPP p')}</p>
+                            </div>
+                          </div>
+                        </div>
+                        {selectedEmail.content.length > 200 && (
+                          <button 
+                            onClick={async () => {
+                              if (showSummary) {
+                                setShowSummary(false);
+                                return;
+                              }
+                              setIsSummarizing(true);
+                              setShowSummary(true);
+                              const summary = await generateEmailSummary(selectedEmail.content);
+                              setEmailSummary(summary);
+                              setIsSummarizing(false);
+                            }}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-br from-neutral-900 to-neutral-800 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-2xl hover:scale-105 active:scale-95 transition-all border border-white/10"
+                          >
+                            <Sparkles size={14} className="text-blue-400" />
+                            {showSummary ? 'Hide breakdown' : '✨ AI Summary'}
+                          </button>
+                        )}
+                      </div>
+
+                      <AnimatePresence>
+                        {showSummary && (
+                          <motion.div 
+                            initial={{ height: 0, opacity: 0, y: -10 }}
+                            animate={{ height: 'auto', opacity: 1, y: 0 }}
+                            exit={{ height: 0, opacity: 0, y: -10 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="p-8 bg-neutral-900 text-white rounded-[2rem] space-y-4 relative overflow-hidden shadow-2xl">
+                              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/20 blur-3xl rounded-full -mr-16 -mt-16" />
+                              <div className="flex items-center gap-2 text-blue-400">
+                                <Sparkles size={14} />
+                                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Nexus Neural Extraction</span>
+                              </div>
+                              {isSummarizing ? (
+                                <div className="flex gap-2 py-4">
+                                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" />
+                                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:0.2s]" />
+                                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:0.4s]" />
+                                </div>
+                              ) : (
+                                <p className="text-sm text-neutral-200 leading-relaxed font-medium italic serif">
+                                  "{emailSummary}"
+                                </p>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      <div className="text-neutral-700 text-base leading-relaxed whitespace-pre-wrap font-book selection:bg-blue-100 py-6 border-t border-neutral-100 mt-8">
+                        {selectedEmail.content}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center text-center p-12 space-y-6 opacity-30 mt-20">
+                      <div className="w-24 h-24 bg-neutral-50 rounded-[2.5rem] flex items-center justify-center border-2 border-dashed border-neutral-200">
+                        <Mail size={48} className="text-neutral-300" />
+                      </div>
+                      <div className="space-y-2">
+                        <h3 className="text-xl font-black uppercase tracking-widest text-neutral-900">Communication Center</h3>
+                        <p className="text-xs font-medium max-w-[240px] mx-auto uppercase tracking-tighter">Select correspondence for nexus to analyze and present.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </motion.div>
             )}
 
@@ -2459,11 +2685,11 @@ export default function App() {
                  <div className="grid md:grid-cols-3 gap-6">
                   <div className="bg-neutral-900 text-white p-6 rounded-3xl col-span-2 shadow-xl relative overflow-hidden">
                     <div className="relative z-10">
-                      <p className="text-neutral-400 text-sm font-medium">Hello, Filip Adamek</p>
-                      <h3 className="text-4xl font-bold mt-1 shadow-sm">
+                      <p className="text-neutral-400 text-xs font-black uppercase tracking-widest">Global Balance</p>
+                      <h3 className="text-5xl font-black mt-2 tracking-tighter">
                         ${transactions.reduce((acc, curr) => curr.type === 'income' ? acc + curr.amount : acc - curr.amount, 5000).toLocaleString()}
                       </h3>
-                      <div className="mt-8 flex gap-4">
+                      <div className="mt-10 flex gap-4">
                         <button 
                           onClick={() => {
                             const desc = prompt('Enter description:');
@@ -2479,74 +2705,112 @@ export default function App() {
                               }).then(() => refreshData());
                             }
                           }}
-                          className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                          className="bg-white text-black px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-neutral-200 transition-all shadow-lg"
                         >
                           Add Expense
                         </button>
-                        <button className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl text-xs font-bold transition-all">Send Money</button>
+                        <button className="bg-white/10 hover:bg-white/20 px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all">Send Money</button>
                       </div>
                     </div>
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/20 rounded-full -mr-16 -mt-16 blur-3xl" />
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/20 rounded-full -mr-16 -mt-16 blur-3xl opacity-50" />
+                    <div className="absolute bottom-0 left-0 w-64 h-64 bg-orange-500/10 rounded-full -ml-32 -mb-32 blur-3xl opacity-30" />
                   </div>
-                  <div className="bg-white border p-6 rounded-3xl flex flex-col justify-between">
+                  <div className="bg-white border-2 border-neutral-100 p-6 rounded-3xl flex flex-col justify-between shadow-sm">
                     <div>
-                      <p className="text-neutral-400 text-xs font-medium uppercase tracking-widest">Monthly Spending</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-2xl font-bold">$1,240</span>
-                        <span className="text-[10px] text-red-500 font-bold bg-red-50 px-2 py-0.5 rounded-full">+12%</span>
-                      </div>
+                      <p className="text-neutral-400 text-[10px] font-black uppercase tracking-widest mb-4">Spending Velocity</p>
+                      <SpendingTrends transactions={transactions} />
                     </div>
-                    <div className="h-1 bg-neutral-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-blue-600 w-3/4 rounded-full" />
+                  </div>
+                  <div className="bg-white border-2 border-neutral-100 p-6 rounded-3xl flex flex-col justify-between shadow-sm">
+                    <div>
+                      <p className="text-neutral-400 text-[10px] font-black uppercase tracking-widest mb-4">Allocation Mix</p>
+                      <TransactionChart transactions={transactions} />
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-3xl border shadow-sm space-y-4">
-                  <h4 className="font-bold flex items-center justify-between gap-2 px-2">
-                    <div className="flex items-center gap-2">
-                      <Clock size={16} /> Recent Transactions
-                    </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <select value={txFilter.type} onChange={(e) => setTxFilter({...txFilter, type: e.target.value})} className="bg-neutral-50 px-2 py-1 rounded-lg border-none">
-                        <option value="all">All Types</option>
-                        <option value="income">Income</option>
-                        <option value="expense">Expense</option>
-                      </select>
-                      <select value={txFilter.category} onChange={(e) => setTxFilter({...txFilter, category: e.target.value})} className="bg-neutral-50 px-2 py-1 rounded-lg border-none">
-                        <option value="all">All Categories</option>
-                        {Array.from(new Set(transactions.map(t => t.category))).map(cat => (
-                          <option key={cat} value={cat}>{cat}</option>
-                        ))}
+                <div className="bg-white p-6 rounded-3xl border shadow-sm space-y-6">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <h4 className="font-bold flex items-center gap-2">
+                      <Clock size={16} /> Transaction History
+                    </h4>
+                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+                      <select 
+                        value={`${txSortBy}-${txSortOrder}`} 
+                        onChange={(e) => {
+                          const [field, order] = e.target.value.split('-') as [any, any];
+                          setTxSortBy(field);
+                          setTxSortOrder(order);
+                        }}
+                        className="bg-neutral-50 text-[10px] font-bold px-3 py-1.5 rounded-lg border-none focus:ring-1 focus:ring-neutral-200 outline-none"
+                      >
+                        <option value="date-desc">Newest First</option>
+                        <option value="date-asc">Oldest First</option>
+                        <option value="amount-desc">Amount: High to Low</option>
+                        <option value="amount-asc">Amount: Low to High</option>
                       </select>
                       <input 
                         type="date" 
                         value={txFilter.date} 
                         onChange={(e) => setTxFilter({...txFilter, date: e.target.value})}
-                        className="bg-neutral-50 px-2 py-1 rounded-lg border-none"
+                        className="bg-neutral-50 text-[10px] font-bold px-3 py-1.5 rounded-lg border-none outline-none"
                       />
                     </div>
-                  </h4>
-                  {filteredTransactions.length === 0 ? (
-                    <p className="text-center text-neutral-400 py-8 italic">No transactions matching your filter.</p>
-                  ) : (
-                    filteredTransactions.map(tx => (
-                      <div key={tx.id} className="flex items-center justify-between p-3 hover:bg-neutral-50 rounded-2xl transition-colors">
-                        <div className="flex items-center gap-4">
-                          <div className={`p-2 rounded-xl ${tx.type === 'income' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
-                            {tx.type === 'income' ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
+                  </div>
+
+                  {/* Filter Chips */}
+                  <div className="flex gap-2 overflow-x-auto no-scrollbar px-1">
+                    {['all', 'income', 'expense'].map(type => (
+                      <button
+                        key={type}
+                        onClick={() => setTxFilter({...txFilter, type})}
+                        className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                          txFilter.type === type 
+                            ? 'bg-neutral-900 text-white shadow-lg' 
+                            : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                    <div className="w-[1px] h-6 bg-neutral-200 mx-1" />
+                    {['all', ...Array.from(new Set(transactions.map(t => t.category)))].map(cat => (
+                      <button
+                        key={cat}
+                        onClick={() => setTxFilter({...txFilter, category: cat})}
+                        className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                          txFilter.category === cat 
+                            ? 'bg-neutral-900 text-white shadow-lg' 
+                            : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="space-y-1">
+                    {filteredTransactions.length === 0 ? (
+                      <p className="text-center text-neutral-400 py-12 italic text-sm">No transactions matching your criteria.</p>
+                    ) : (
+                      filteredTransactions.map(tx => (
+                        <div key={tx.id} className="flex items-center justify-between p-4 hover:bg-neutral-50 rounded-2xl transition-colors border-b last:border-b-0 border-neutral-50">
+                          <div className="flex items-center gap-4">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${tx.type === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                              {tx.type === 'income' ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
+                            </div>
+                            <div>
+                              <p className="font-bold text-sm text-neutral-900">{tx.description}</p>
+                              <p className="text-[10px] text-neutral-400 font-black uppercase tracking-tight">{tx.category} • {safeFormat(tx.timestamp, 'MMM d, yyyy')}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-bold text-sm text-[#1A1A1A]">{tx.description}</p>
-                            <p className="text-[10px] text-neutral-400 font-medium">{tx.category} • {safeFormat(tx.timestamp, 'MMM d')}</p>
-                          </div>
+                          <span className={`font-mono font-bold text-sm ${tx.type === 'income' ? 'text-green-600' : 'text-neutral-900'}`}>
+                            {tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString()}
+                          </span>
                         </div>
-                        <span className={`font-mono font-bold ${tx.type === 'income' ? 'text-green-600' : 'text-neutral-900'}`}>
-                          {tx.type === 'income' ? '+' : '-'}${tx.amount}
-                        </span>
-                      </div>
-                    ))
-                  )}
+                      ))
+                    )}
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -2558,28 +2822,47 @@ export default function App() {
                 animate={{ opacity: 1 }}
                 className="space-y-6 max-w-4xl mx-auto"
               >
-                {/* Personalized Recommendations */}
-                <div className="bg-gradient-to-br from-neutral-900 to-neutral-800 p-6 rounded-3xl shadow-xl space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-white font-bold flex items-center gap-2">
-                       <Sparkles size={18} className="text-yellow-400" /> Personalized for Filip
-                    </h4>
-                    <span className="text-[10px] font-black text-yellow-400 bg-white/10 px-2 py-0.5 rounded-full uppercase">Luxury Picks</span>
+                {/* Personalized Recommendations - Luxe-Minimalist Style */}
+                <div className="bg-[#FAF9F6] p-10 rounded-[3rem] border shadow-sm space-y-10">
+                  <div className="text-center space-y-2">
+                    <h2 className="text-3xl font-black tracking-tighter text-[#1A1A1A] uppercase">Curated For Filip</h2>
+                    <div className="w-12 h-1 bg-yellow-600 mx-auto rounded-full" />
+                    <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Neural Affinity Score Matching</p>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
                     {shoppingRecs.length === 0 ? (
-                      <p className="text-neutral-400 text-[10px] italic col-span-full py-4 text-center">Ask Nexus for high-end recommendations based on your style.</p>
+                      <p className="text-neutral-400 text-[10px] italic col-span-full py-4 text-center">Identifying high-value matches...</p>
                     ) : (
                       shoppingRecs.map(item => (
-                        <div key={item.id} className="bg-white/5 border border-white/10 p-3 rounded-2xl space-y-2 hover:bg-white/10 transition-colors cursor-pointer group">
-                          <p className="text-white font-bold text-xs truncate">{item.brand}</p>
-                          <p className="text-neutral-400 text-[10px] truncate">{item.name}</p>
-                          <p className="text-yellow-400 font-black text-xs mt-1">${item.price}</p>
+                        <div key={item.id} className="group relative">
+                          <div className="aspect-[3/4] bg-neutral-100 rounded-3xl overflow-hidden mb-6 relative">
+                            <img 
+                              src={item.image || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=600'} 
+                              referrerPolicy="no-referrer"
+                              className="w-full h-full object-cover grayscale-[30%] group-hover:grayscale-0 group-hover:scale-105 transition-all duration-700" 
+                              alt={item.name}
+                            />
+                            {item.relevanceScore && item.relevanceScore >= 90 && (
+                              <div className="absolute top-4 left-4 bg-neutral-900 text-white text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest">
+                                Master Piece
+                              </div>
+                            )}
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
+                          </div>
+                          
+                          <div className="space-y-1 text-center">
+                            <p className="text-yellow-700 text-[10px] font-black uppercase tracking-[0.2em]">{item.brand}</p>
+                            <h3 className="font-bold text-neutral-900 tracking-tight">{item.name}</h3>
+                            <div className="w-4 h-[1px] bg-neutral-200 mx-auto my-2" />
+                            <p className="text-sm font-black text-neutral-900">${item.price.toLocaleString()}</p>
+                          </div>
+
                           <button 
-                            onClick={() => sendMessage(`book ${item.name} from my luxury recommendations`)}
-                            className="w-full py-1 text-[8px] font-black text-neutral-900 bg-yellow-400 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity uppercase"
+                            onClick={() => sendMessage(`book ${item.brand} ${item.name} from my luxury recommendations`)}
+                            className="mt-6 w-full py-4 bg-neutral-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 shadow-xl"
                           >
-                            Buy Now
+                            Acquire Item
                           </button>
                         </div>
                       ))
@@ -3391,45 +3674,77 @@ export default function App() {
                         ))}
                       </Map>
                       <div className="absolute top-4 left-4 right-4 z-10 flex gap-2">
-                        <div className="flex-1 bg-white/90 backdrop-blur-md px-4 py-2 rounded-xl border shadow-lg flex items-center gap-2">
-                          <MapIcon size={14} className="text-neutral-500" />
+                        <div className="flex-1 bg-white/95 backdrop-blur-md px-5 py-3 rounded-2xl border shadow-2xl flex items-center gap-3">
+                          <Search size={16} className="text-neutral-400" />
                           <input 
                             type="text" 
-                            placeholder="Search places..." 
-                            className="bg-transparent text-xs font-bold text-neutral-900 outline-none w-full"
+                            placeholder="Find nexus location..." 
+                            className="bg-transparent text-sm font-black text-neutral-900 outline-none w-full uppercase tracking-tight"
                           />
                         </div>
+                        <button className="bg-white/95 backdrop-blur-md p-3 rounded-2xl border shadow-2xl text-neutral-500 hover:text-neutral-900 transition-colors">
+                          <Plus size={20} />
+                        </button>
+                      </div>
+
+                      <div className="absolute bottom-10 right-10 z-10 flex flex-col gap-3">
+                        {selectedPlace && (
+                          <motion.div 
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            className="bg-white/95 backdrop-blur-md p-6 rounded-[2rem] border shadow-2xl w-72 space-y-4"
+                          >
+                            <div className="flex justify-between items-start">
+                              <h3 className="text-xl font-black text-neutral-900 tracking-tighter uppercase">{selectedPlace.name}</h3>
+                              <button onClick={() => setSelectedPlace(null)} className="text-neutral-400 hover:text-neutral-900">
+                                <X size={20} />
+                              </button>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-1">
+                                <Sparkles size={10} /> AI Insight
+                              </p>
+                              <p className="text-xs text-neutral-600 font-medium leading-relaxed">
+                                {selectedPlace.description || "Nexus has identified this as a high-value interaction point based on your frequency."}
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              <button className="flex-1 bg-neutral-900 text-white py-2 rounded-xl text-[10px] font-black uppercase tracking-widest">Get Directions</button>
+                              <button className="p-2 border rounded-xl hover:bg-neutral-50"><Share2 size={16} /></button>
+                            </div>
+                          </motion.div>
+                        )}
                         <button 
                           onClick={() => {
                             if (navigator.geolocation) {
                               navigator.geolocation.getCurrentPosition((pos) => {
                                 setMapCenter({ lat: pos.coords.latitude, lng: pos.coords.longitude });
                                 setMapZoom(15);
+                                setSelectedPlace({ name: 'Your Location', description: 'Current coordinates synchronized with nexus.' });
                               });
                             }
                           }}
-                          className="bg-white/90 backdrop-blur-md p-2 rounded-xl border shadow-lg text-blue-600 hover:text-blue-700 transition-colors"
+                          className="self-end bg-neutral-900 text-white p-4 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] hover:scale-110 active:scale-95 transition-all group"
                         >
-                          <Locate size={18} />
+                          <Locate size={24} />
                         </button>
                       </div>
-                      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 w-full max-w-md px-4">
-                         <div className="bg-white/90 backdrop-blur-md p-2 rounded-2xl border shadow-2xl flex gap-2 overflow-x-auto no-scrollbar">
+
+                      <div className="absolute bottom-8 left-10 z-10 w-full max-w-sm">
+                         <div className="bg-white/95 backdrop-blur-md p-3 rounded-3xl border shadow-2xl flex gap-3 overflow-x-auto no-scrollbar">
                            {navigationFavs.map(fav => (
                              <button 
                                key={fav.id}
                                onClick={() => {
                                  setMapCenter({ lat: fav.lat, lng: fav.lng });
-                                 setMapZoom(15);
+                                 setMapZoom(16);
+                                 setSelectedPlace(fav);
                                }}
-                               className="whitespace-nowrap px-4 py-2 bg-neutral-900 text-white rounded-xl text-xs font-bold shadow-md hover:bg-neutral-800 transition-colors"
+                               className="whitespace-nowrap px-5 py-2.5 bg-neutral-100 text-neutral-900 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-neutral-900 hover:text-white transition-all shadow-sm"
                              >
                                {fav.name}
                              </button>
                            ))}
-                           <button className="whitespace-nowrap px-4 py-2 border rounded-xl text-xs font-bold hover:bg-neutral-50 transition-colors flex items-center gap-2">
-                             <Plus size={14} /> Add Place
-                           </button>
                          </div>
                       </div>
                     </APIProvider>

@@ -424,6 +424,67 @@ const listReceiptsTool: FunctionDeclaration = {
   }
 };
 
+const searchTransactionsTool: FunctionDeclaration = {
+  name: "search_transactions",
+  description: "Search and filter financial transactions.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      type: { type: Type.STRING, enum: ["income", "expense"], description: "Filter by income or expense" },
+      category: { type: Type.STRING, description: "Filter by category (e.g., Food, Salary, Travel)" },
+      startDate: { type: Type.STRING, description: "Filter by start date (ISO string)" },
+      endDate: { type: Type.STRING, description: "Filter by end date (ISO string)" },
+      sortBy: { type: Type.STRING, enum: ["date", "amount", "description"], description: "Field to sort by" },
+      sortOrder: { type: Type.STRING, enum: ["asc", "desc"], description: "Sort order" }
+    }
+  }
+};
+
+const searchEmailsTool: FunctionDeclaration = {
+  name: "search_emails",
+  description: "Search and filter emails by sender, subject, or category.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      sender: { type: Type.STRING, description: "Filter by sender name or email" },
+      subject: { type: Type.STRING, description: "Filter by keywords in subject" },
+      category: { type: Type.STRING, enum: ["Work", "Personal", "Promotions", "Social", "Other"], description: "Filter by category" }
+    }
+  }
+};
+
+const checkProactiveAlertsTool: FunctionDeclaration = {
+  name: "check_proactive_alerts",
+  description: "Manually trigger a check for proactive travel alerts (delays, gate changes).",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {}
+  }
+};
+
+const getLuxuryRecommendationsTool: FunctionDeclaration = {
+  name: "get_luxury_recommendations",
+  description: "Get personalized luxury shopping recommendations based on preferences.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      preferences: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of preferred categories or keywords" }
+    }
+  }
+};
+
+const searchNavigationFavoritesTool: FunctionDeclaration = {
+  name: "search_navigation_favorites",
+  description: "Search user's favorite locations by name or address.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      query: { type: Type.STRING, description: "Name or address keyword to search for" }
+    },
+    required: ["query"]
+  }
+};
+
 const savePreferencesTool: FunctionDeclaration = {
   name: "save_flight_preferences",
   description: "Saves user preferences for flights, such as seat type, preferred airline, and loyalty number.",
@@ -468,7 +529,12 @@ const tools = [{
     addPriceAlertTool,
     checkInTool,
     savePreferencesTool,
-    listReceiptsTool
+    listReceiptsTool,
+    searchTransactionsTool,
+    searchEmailsTool,
+    checkProactiveAlertsTool,
+    getLuxuryRecommendationsTool,
+    searchNavigationFavoritesTool
   ]
 }];
 
@@ -797,6 +863,22 @@ IDENTITY REINFORCEMENT:
           } else {
             output = receipts;
           }
+        } else if (name === "search_transactions") {
+          output = await financialService.searchTransactions(args as any);
+        } else if (name === "search_emails") {
+          output = await emailService.searchEmails(args as any);
+        } else if (name === "check_proactive_alerts") {
+          await alertService.checkProactiveAlerts();
+          output = { success: true, message: "Proactive alert check completed. New alerts added if any issues found." };
+        } else if (name === "get_luxury_recommendations") {
+          output = await shoppingService.getRecommendations(args.preferences as string[]);
+        } else if (name === "search_navigation_favorites") {
+          const favs = await navigationService.getFavorites();
+          const queryStr = (args.query as string).toLowerCase();
+          output = favs.filter(f => 
+            f.name.toLowerCase().includes(queryStr) || 
+            f.address.toLowerCase().includes(queryStr)
+          );
         }
 
         toolResults.push({
@@ -846,17 +928,22 @@ export async function generateEmailSummary(emailContent: string): Promise<string
   try {
     const response = await ai.models.generateContent({
       model,
-      contents: `Summarize the following email concisely, focusing on key action items and critical information:\n\n${emailContent}`,
+      contents: `Provide a critical executive summary of this email. 
+      Format exactly like this:
+      - [Sentence 1: Essential context/intent]
+      - [Sentence 2: Critical action or conclusion]
+      
+      Email Content:\n\n${emailContent}`,
       config: {
-        systemInstruction: "You are an expert executive assistant. Provide a one-paragraph summary of the email provided."
+        systemInstruction: "You are an elite cognitive extraction agent. Deliver a precise 2-sentence bulleted breakdown of the core signal within the noise. Use sophisticated, high-impact language."
       }
     });
-    return response.text || "Summary unavailable.";
+    return response.text || "Neural extraction failed. Signal lost.";
   } catch (error: any) {
     if (error.message?.includes('RESOURCE_EXHAUSTED') || error.status === 429) {
-      return "Summary temporarily unavailable due to high demand.";
+      return "Extraction units currently at capacity. Signal delayed.";
     }
-    return "Summary unavailable.";
+    return "Neural extraction failed.";
   }
 }
 

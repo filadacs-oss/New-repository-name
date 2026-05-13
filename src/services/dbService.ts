@@ -88,6 +88,25 @@ export const emailService = {
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `emails/${id}`);
     }
+  },
+  async searchEmails(filters: { sender?: string, subject?: string, category?: string }): Promise<Email[]> {
+    if (!auth.currentUser) return [];
+    try {
+      let emails = await this.getEmails();
+      if (filters.sender) {
+        emails = emails.filter(e => e.sender.toLowerCase().includes(filters.sender!.toLowerCase()));
+      }
+      if (filters.subject) {
+        emails = emails.filter(e => e.subject.toLowerCase().includes(filters.subject!.toLowerCase()));
+      }
+      if (filters.category) {
+        emails = emails.filter(e => e.category === filters.category);
+      }
+      return emails;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'emails');
+      return [];
+    }
   }
 };
 // ... rest of the file ...
@@ -293,6 +312,48 @@ export const financialService = {
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'transactions');
     }
+  },
+  async searchTransactions(filters: { type?: 'income' | 'expense', category?: string, startDate?: string, endDate?: string, sortBy?: keyof Transaction, sortOrder?: 'asc' | 'desc' }): Promise<Transaction[]> {
+    if (!auth.currentUser) return [];
+    try {
+      let txs = await this.getTransactions();
+      
+      if (filters.type) {
+        txs = txs.filter(t => t.type === filters.type);
+      }
+      if (filters.category) {
+        txs = txs.filter(t => t.category === filters.category);
+      }
+      if (filters.startDate) {
+        const start = new Date(filters.startDate).getTime();
+        txs = txs.filter(t => new Date(t.timestamp).getTime() >= start);
+      }
+      if (filters.endDate) {
+        const end = new Date(filters.endDate).getTime();
+        txs = txs.filter(t => new Date(t.timestamp).getTime() <= end);
+      }
+
+      if (filters.sortBy) {
+        txs.sort((a, b) => {
+          const valA = a[filters.sortBy!];
+          const valB = b[filters.sortBy!];
+          
+          let comparison = 0;
+          if (typeof valA === 'number' && typeof valB === 'number') {
+            comparison = valA - valB;
+          } else if (typeof valA === 'string' && typeof valB === 'string') {
+            comparison = valA.localeCompare(valB);
+          }
+          
+          return filters.sortOrder === 'desc' ? -comparison : comparison;
+        });
+      }
+
+      return txs;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'transactions');
+      return [];
+    }
   }
 };
 
@@ -374,15 +435,50 @@ export const shoppingService = {
       handleFirestoreError(error, OperationType.CREATE, 'shopping');
     }
   },
-  async getRecommendations(): Promise<ShoppingItem[]> {
-    // Mock recommendations for now, in a real app this would use ML or past purchases
-    return [
-      { id: 'rec-iphone', userId: 'system', name: 'iPhone 15 Pro', brand: 'Apple', price: 999, link: '#', image: 'https://images.unsplash.com/photo-1696446701796-da61225697cc?auto=format&fit=crop&q=80&w=400' },
-      { id: 'rec-macbook', userId: 'system', name: 'MacBook Air M3', brand: 'Apple', price: 1099, link: '#', image: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=400' },
-      { id: 'rec-headphones', userId: 'system', name: 'Sony WH-1000XM5', brand: 'Sony', price: 349, link: '#', image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=400' },
-      { id: 'rec-tv', userId: 'system', name: 'OLED TV 55"', brand: 'LG', price: 1299, link: '#', image: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?auto=format&fit=crop&q=80&w=400' },
-      { id: 'rec-gaming', userId: 'system', name: 'GeForce RTX 4080', brand: 'NVIDIA', price: 1199, link: '#', image: 'https://images.unsplash.com/photo-1587202372775-e2200fce9d33?auto=format&fit=crop&q=80&w=400' }
+  async getRecommendations(userPreferences?: string[]): Promise<ShoppingItem[]> {
+    const allRecommendations = [
+      { id: 'rec-iphone', userId: 'system', name: 'iPhone 15 Pro', brand: 'Apple', price: 999, link: '#', image: 'https://images.unsplash.com/photo-1696446701796-da61225697cc?auto=format&fit=crop&q=80&w=400', category: 'Electronics' },
+      { id: 'rec-macbook', userId: 'system', name: 'MacBook Air M3', brand: 'Apple', price: 1099, link: '#', image: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=400', category: 'Electronics' },
+      { id: 'rec-headphones', userId: 'system', name: 'Sony WH-1000XM5', brand: 'Sony', price: 349, link: '#', image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=400', category: 'Electronics' },
+      { id: 'rec-tv', userId: 'system', name: 'OLED TV 55"', brand: 'LG', price: 1299, link: '#', image: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?auto=format&fit=crop&q=80&w=400', category: 'Electronics' },
+      { id: 'rec-gaming', userId: 'system', name: 'GeForce RTX 4080', brand: 'NVIDIA', price: 1199, link: '#', image: 'https://images.unsplash.com/photo-1587202372775-e2200fce9d33?auto=format&fit=crop&q=80&w=400', category: 'Electronics' },
+      { id: 'rec-watch', userId: 'system', name: 'Seamaster Watch', brand: 'Omega', price: 5500, link: '#', image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=400', category: 'Accessories' },
+      { id: 'rec-bag', userId: 'system', name: 'Leather Weekender', brand: 'Hermes', price: 1200, link: '#', image: 'https://images.unsplash.com/photo-1547949003-9792a18a2601?auto=format&fit=crop&q=80&w=400', category: 'Luxury' }
     ];
+
+    // Simulate "Luxury Score" logic based on preferences and transaction history
+    let txHistory: Transaction[] = [];
+    try {
+      txHistory = await financialService.getTransactions();
+    } catch (e) {
+      console.warn("Could not fetch transactions for luxury scoring", e);
+    }
+
+    const luxuryBrands = ["Apple", "Omega", "Hermes", "Sony", "Loro Piana", "Brunello Cucinelli"];
+    
+    const results = allRecommendations.map(item => {
+      let score = 0;
+      
+      // Category Match
+      if (userPreferences?.some(pref => item.category.toLowerCase().includes(pref.toLowerCase()) || item.name.toLowerCase().includes(pref.toLowerCase()))) {
+        score += 40;
+      }
+      
+      // Brand Affinity
+      if (luxuryBrands.includes(item.brand)) {
+        score += 30;
+      }
+      
+      // Past Spending Habit Analysis
+      const highValueSpending = txHistory.some(t => t.amount > 1000 && t.category === item.category);
+      if (highValueSpending) {
+        score += 30;
+      }
+      
+      return { ...item, relevanceScore: score };
+    });
+
+    return results.sort((a, b) => b.relevanceScore - a.relevanceScore).filter(r => r.relevanceScore >= 30);
   }
 };
 
@@ -689,6 +785,53 @@ export const alertService = {
       await updateDoc(doc(db, 'travelAlerts', id), { isRead: true });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `travelAlerts/${id}`);
+    }
+  },
+  async checkProactiveAlerts(): Promise<void> {
+    if (!auth.currentUser) return;
+    try {
+      // 1. Check Flights
+      const flights = await flightService.getFlights();
+      const bookedFlights = flights.filter(f => f.status === 'booked');
+      
+      for (const flight of bookedFlights) {
+        // Mock status check
+        const statuses = ['Delayed', 'On Time', 'Boarding', 'Gate Change'];
+        const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+        
+        if (randomStatus === 'Delayed') {
+          const delayMinutes = 15 + Math.floor(Math.random() * 45);
+          await this.addAlert({
+            tripId: flight.id,
+            type: 'delay',
+            title: `SIGNAL: Flight ${flight.flightNumber || 'FL123'} Delayed`,
+            message: `Neural sync indicates your flight to ${flight.destination} is delayed by ${delayMinutes} minutes. Adjustment recommended.`,
+            severity: 'medium'
+          });
+        }
+      }
+
+      // 2. Check Price Alerts
+      const priceAlerts = await priceAlertService.getAlerts();
+      const activeAlerts = priceAlerts.filter(a => a.status === 'active');
+      
+      for (const alert of activeAlerts) {
+        // Mock a price drop (50% chance)
+        if (Math.random() > 0.5) {
+          const currentPrice = alert.maxPrice - Math.floor(Math.random() * 100);
+          await this.addAlert({
+            tripId: alert.id,
+            type: 'price_drop',
+            title: `MARKET SIGNAL: ${alert.destination} Drop`,
+            message: `Target reached! Current price for your ${alert.targetType} to ${alert.destination} is now $${currentPrice}. Book immediate.`,
+            severity: 'high'
+          });
+          // Mark alert as triggered
+          await priceAlertService.updateAlert(alert.id, { status: 'triggered' });
+        }
+      }
+    } catch (error) {
+      console.error("Error checking proactive alerts:", error);
     }
   }
 };
